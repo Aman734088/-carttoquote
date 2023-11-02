@@ -1,0 +1,251 @@
+public with sharing class CreateCartTriggerHandler {
+    public void createCart(List<SBQQ__Quote__c> qutList,Map<Id,SBQQ__Quote__c> qutOld){
+        List<SBQQ__Quote__c> qouteList = new List<SBQQ__Quote__c>();
+        
+        List<Id> quoteIds = new List<Id>();
+
+        for(SBQQ__Quote__c qut :qutList ) {
+        
+        if(qut.Publish_to_B2B_store__c ){
+            qouteList.add(qut);
+            quoteIds.add(qut.Id);
+            Boolean wasSuccessful = false;
+
+        Map<String, Object> cartToCreate = new Map<String, Object> {
+            'cartType' => 'Cart',
+            'activeCart' => true,
+            'name' => 'descriptiveCartName',
+            'storefront' => 'DefaultStore' 
+        };
+
+        Map<String, Object> cartCreateInputData = new Map<String, Object> {
+            ccrz.ccApi.API_VERSION => ccrz.ccApi.CURRENT_VERSION,
+            ccrz.ccApiCart.CART_OBJLIST => new List<Map<String, Object>> {cartToCreate},
+            ccrz.ccApi.SIZING => new Map<String, Object> {
+            ccrz.ccApiCart.ENTITYNAME => new Map<String, Object> {
+            ccrz.ccApi.SZ_REFETCH => true
+            }
+        }
+    };
+        System.debug(' cartCreateInputData-->'+cartCreateInputData );
+        try {
+        wasSuccessful = true;
+        //System.debug(' cartCreateInputData-->'+cartCreateInputData );
+        Map<String, Object> createCartResults = ccrz.ccApiCart.create(cartCreateInputData);
+        System.debug('createCartResults-->'+ cartToCreate);
+        wasSuccessful = (Boolean)createCartResults.get(ccrz.ccApi.SUCCESS);
+        System.debug('cartcrreation-->'+ createCartResults);
+        List<Object> createdCartList = (List<Object>) createCartResults.get(ccrz.ccApiCart.CART_OBJLIST);
+        Map<String, Object> createdCart = (Map<String, Object>) createdCartList[0];
+       }catch (Exception e) {
+        System.debug('Exception-->'+ e.getLineNumber() +''+ e.getMessage());
+        }
+    }
+} 
+
+    List<SBQQ__QuoteLine__c> QuoteLineList = [select ID, SBQQ__Product__c, SBQQ__Quantity__c,
+                                              SBQQ__Quote__c from SBQQ__QuoteLine__c
+                                              where SBQQ__Quote__c IN:quoteIds];  
+    Map<String, List<SBQQ__QuoteLine__c>> qutline = new Map<String, List<SBQQ__QuoteLine__c>>();
+
+
+     for(SBQQ__QuoteLine__c qtLine : QuoteLineList){
+
+        if(qutline.containsKey(qtLine.SBQQ__Quote__c)){
+
+        list<SBQQ__QuoteLine__c> qtLines=qutline.get(qtLine.SBQQ__Quote__c);
+        qtLines.add(qtLine);
+
+        qutline.put(qtLine.SBQQ__Quote__c,qtLines);
+        }
+
+        else{
+            qutline.put(qtLine.SBQQ__Quote__c,new List<SBQQ__QuoteLine__c>{qtLine});
+        }
+        System.debug('qtLine-->'+ qtLine);
+     }
+     
+    for(SBQQ__Quote__c qut : qouteList ){
+
+        List<Map<String, Object>> addNewItems = new List<Map<String, Object>>();
+        list<SBQQ__QuoteLine__c> listquoteline = qutline.get(qut.Id);
+        
+        for(SBQQ__QuoteLine__c qtLine : listquoteline) {
+    
+            Map<String, Object> newSKUToAdd = new Map<String, Object> {
+                ccrz.ccApiCart.LINE_DATA_PRODUCT_SFID => qtLine.SBQQ__Product__c,
+                ccrz.ccApiCart.LINE_DATA_QUANTITY => qtLine.SBQQ__Quantity__c
+            };
+        
+            addNewItems.add(newSKUToAdd);
+        }
+ 
+        Map<String, Object> cartItemsToAdd = new Map<String, Object> {
+            ccrz.ccApi.API_VERSION => ccrz.ccApi.CURRENT_VERSION,
+            ccrz.ccApiCart.LINE_DATA => addNewItems
+        };
+            
+        Map<String, Object> addToCartResults = ccrz.ccApiCart.addTo(cartItemsToAdd);
+        System.debug((Boolean)addToCartResults.get(ccrz.ccApi.SUCCESS));
+        }
+    }
+}
+    
+-----------------------------------------------------------------------------
+
+
+public with sharing class createCartTriggerHandler {
+        public static void createCart(List<SBQQ__Quote__c> qutList, Map<Id,SBQQ__Quote__c> qutOld){
+            List<SBQQ__Quote__c> qouteList = new List<SBQQ__Quote__c>();
+            List<Id> quoteIds = new List<Id>();  
+            List<Id> contactIds=new List<Id>();
+        /*   //try{
+                Map<String, Object> outputData = ccrz.ccAPICart.create(new Map<String,Object>{
+                    ccrz.ccApi.API_VERSION => 8
+                        });
+                System.debug(' outputData--> '+ outputData);
+            /*}catch(Exception e){
+                System.debug('e ' + e);
+                System.debug('e ' + e.getLineNumber());
+                System.debug('e ' + e.getStackTraceString());           
+            }   
+            */
+             // creating cc Cart from Dml
+        
+            for(SBQQ__Quote__c qut :qutList ) {    
+
+                if(qut.Publish_to_B2B_store__c && qutOld.get(qut.Id).Publish_to_B2B_store__c != qut.Publish_to_B2B_store__c){
+                    qouteList.add(qut);
+                    quoteIds.add(qut.Id);
+                    contactIds.add(qut.SBQQ__PrimaryContact__c);
+                /*  Boolean wasSuccessful = false;               
+                    Map<String, Object> cartToCreate = new Map<String, Object> {
+                        'cartType' => 'Cart',
+                        'activeCart' => true,
+                        'name' => 'descriptiveCartName',
+                        'storefront' => 'DefaultStore' 
+                        };
+                                
+                    Map<String, Object> inputData = new Map<String,Object>{
+                        ccrz.ccApi.API_VERSION => ccrz.ccAPI.CURRENT_VERSION
+                        }; 
+                    System.debug(' inputData--> '+ inputData);             
+                /*   try{
+                        outputData = ccrz.ccAPICart.create(new Map<String,Object>{
+                            ccrz.ccApi.API_VERSION => 8
+                                });
+                        System.debug(' outputData--> '+ outputData);
+                        }catch(Exception e){
+                        System.debug('e ' + e);
+                        System.debug('e ' + e.getLineNumber());
+                        System.debug('e ' + e.getStackTraceString());                    
+                    }          
+                    /*
+            Map<String, Object> cartCreateInputData = new Map<String, Object> {
+            ccrz.ccApi.API_VERSION => ccrz.ccApi.CURRENT_VERSION,
+            ccrz.ccApiCart.CART_OBJLIST => new List<Map<String, Object>> {cartToCreate},
+            ccrz.ccApi.SIZING => new Map<String, Object> {
+            ccrz.ccApiCart.ENTITYNAME => new Map<String, Object> {
+            ccrz.ccApi.SZ_REFETCH => true
+            }
+        }
+    };
+            System.debug(' cartCreateInputData-->'+cartCreateInputData );
+            try {
+            wasSuccessful = true;
+            //System.debug(' cartCreateInputData-->'+cartCreateInputData );
+            Map<String, Object> createCartResults = ccrz.ccApiCart.create(cartCreateInputData);
+            System.debug('createCartResults-->'+ cartToCreate);
+            wasSuccessful = (Boolean)createCartResults.get(ccrz.ccApi.SUCCESS);
+            System.debug('cartcrreation-->'+ createCartResults);
+            List<Object> createdCartList = (List<Object>) createCartResults.get(ccrz.ccApiCart.CART_OBJLIST);
+            Map<String, Object> createdCart = (Map<String, Object>) createdCartList[0];
+            }catch (Exception e) {
+            System.debug('Exception-->'+ e.getLineNumber() +''+ e.getMessage());
+            }*/
+        }
+    }     
+            List<SBQQ__QuoteLine__c> QuoteLineList = [select ID, SBQQ__Product__c, SBQQ__Quantity__c,
+                                                    SBQQ__Quote__c,SBQQ__ListPrice__c from SBQQ__QuoteLine__c
+                                                    where SBQQ__Quote__c IN:quoteIds];  
+            System.debug('QuoteLineList-->'+ QuoteLineList );
+            Map<String, List<SBQQ__QuoteLine__c>> qutLineMap = new Map<String, List<SBQQ__QuoteLine__c>>(); 
+            set<Id> prodid = new set<Id>();
+
+            for(SBQQ__QuoteLine__c qtLine : QuoteLineList){
+                System.debug('qtline-->'+ qtLine );
+                System.debug('qutLineMap'+ qutLineMap );
+                prodid.add(qtLine.SBQQ__Product__c);
+                    if(qutLineMap.containsKey(qtLine.SBQQ__Quote__c)){
+                        list<SBQQ__QuoteLine__c> qtLineList = qutLineMap.get(qtLine.SBQQ__Quote__c);
+                        qtLineList.add(qtLine);
+                        qutLineMap.put(qtLine.SBQQ__Quote__c,qtLineList);
+                        System.debug('qutLineMap-->'+ qutLineMap );
+                    } else {
+                        qutLineMap.put(qtLine.SBQQ__Quote__c,new List<SBQQ__QuoteLine__c>{qtLine});
+                    }
+                        System.debug('qtLine-->'+ qtLine);
+                }
+                List<ccrz__E_Product__c> ccprod = [select Id, Salesforce_Product__c  from ccrz__E_Product__c where Salesforce_Product__c IN:prodid ];
+                List<User> user=[Select Id,ContactId from user where contactId in:contactIds];
+                Map<Id, Id> ccproIdMap = new Map<Id, Id>();
+                Map<Id, Id> userIdToContactIdMap = new Map<Id, Id>();
+                for(ccrz__E_Product__c ccproduct : ccprod ){
+                    ccproIdMap.put(ccproduct.Salesforce_Product__c,ccproduct.Id);
+                }
+            
+            for(User usr:user){
+                userIdToContactIdMap.put(usr.ContactId,usr.id);
+            }
+                List<ccrz__E_Cart__c> cartlist = new List<ccrz__E_Cart__c>();
+                List<ccrz__E_CartItem__c> cartitemslist = new List<ccrz__E_CartItem__c>();
+                for(SBQQ__Quote__c qut : qouteList ){     
+                    ccrz__E_Cart__c createcart = new ccrz__E_Cart__c();
+                    createcart.ccrz__CartType__c = 'Cart';
+                    createcart.Renewal_quote__c = qut.Id;
+                    createcart.ccrz__Storefront__c = 'DefaultStore';
+                    createcart.ccrz__ActiveCart__c = true;
+                    createcart.ccrz__Account__c = qut.SBQQ__Account__c;
+                    createcart.ccrz__Contact__c = qut.SBQQ__PrimaryContact__c;
+                    createcart.ccrz__User__c = userIdToContactIdMap.get(qut.SBQQ__PrimaryContact__c);
+                    cartlist.add(createcart);
+                }
+                insert cartlist;
+                System.debug('cartlist-->'+ cartlist);
+                
+                for(ccrz__E_Cart__c cl : cartlist){
+                    list<SBQQ__QuoteLine__c> listquoteline = qutLineMap.get(cl.Renewal_quote__c);
+                    for(SBQQ__QuoteLine__c qtLine : listquoteline){
+                        String ccproductid = ccproIdMap.get(qtline.SBQQ__Product__c);
+                        System.debug('productid'+ qtLine.SBQQ__Product__c );
+                        System.debug('productquanty'+ qtLine.SBQQ__Quantity__c );
+
+                        ccrz__E_CartItem__c cartitems = new ccrz__E_CartItem__c();
+                        cartitems.ccrz__Cart__c	= cl.Id;
+                        cartitems.ccrz__Product__c = ccproductid;
+                        cartitems.ccrz__Quantity__c	 = qtLine.SBQQ__Quantity__c;
+                        cartitems.ccrz__SubAmount__c = qtLine.SBQQ__ListPrice__c;
+                        cartitems.ccrz__Price__c = qtLine.SBQQ__ListPrice__c ;
+                        cartitemslist.add(cartitems);
+                    }
+                }
+                insert cartitemslist;
+                System.debug('cartitemslist-->'+ cartitemslist);
+
+                    /* Map<String, Object> newSKUToAdd = new Map<String, Object> {
+                        ccrz.ccApiCart.LINE_DATA_PRODUCT_SFID => qtLine.SBQQ__Product__c,
+                        ccrz.ccApiCart.LINE_DATA_QUANTITY => qtLine.SBQQ__Quantity__c
+                        };        
+                            addNewItems.add(newSKUToAdd);
+                    }
+                    Map<String, Object> cartItemsToAdd = new Map<String, Object> {
+                        ccrz.ccApi.API_VERSION => ccrz.ccApi.CURRENT_VERSION,
+                        ccrz.ccApiCart.LINE_DATA => addNewItems
+                    };
+                        System.debug('cartItemsToAdd-->'+ cartItemsToAdd); 
+                            Map<String, Object> addToCartResults = ccrz.ccApiCart.addTo(cartItemsToAdd);
+                            System.debug((Boolean)addToCartResults.get(ccrz.ccApi.SUCCESS));
+                            System.debug('addNewItems-->'+ addNewItems);      */
+            }
+
+    }
